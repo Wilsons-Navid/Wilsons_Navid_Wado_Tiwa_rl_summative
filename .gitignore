@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+~$*
+*.tmp
+_unity_scripts_backup/
+Copy of *
+generate_report.py
+generate_report_v2.py
+report.md
+report_v2.md
+docs/
+CyberShield_RL_Report.docx
+CyberShield_RL_Report_v2.docx
+results/tensorboard/
+unity_viz/
+unity_viz2/
