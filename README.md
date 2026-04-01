@@ -8,8 +8,8 @@
 |:---:|:---:|:---:|
 | ![Cinematic Overview](results/unity_cinematic_overview.png) | ![Observer Top-Down](results/unity_observer_topdown.png) | ![Follow - Agent Walking](results/unity_follow_agent.png) |
 | *Cinematic View — Full House Layout* | *Observer View — Top-Down Overview* | *Follow Camera — Agent in Corridor* |
-| ![Follow - Door Navigation](results/unity_follow_door.png) | ![Cinematic - Threat Detection](results/unity_cinematic_threats.png) | |
-| *Follow Camera — Agent Navigating Doors* | *Cinematic — Infected Rooms (Red)* | |
+| ![Follow - Door Navigation](results/unity_follow_door.png) | ![Cinematic - Threat Detection](results/unity_cinematic_threats.png) | ![Observer - Positive Reward](results/unity_observer_reward.png) |
+| *Follow Camera — Agent Navigating Doors* | *Cinematic — Infected Rooms (Red)* | *Observer — Agent Earning +2.0 Reward* |
 
 A reinforcement learning agent for autonomous cyber threat hunting across a simulated enterprise network. The agent navigates a 14-node network topology to detect and neutralize hidden threats (malware, backdoors, cryptominers, data exfiltration) before cumulative damage exceeds a critical threshold.
 
