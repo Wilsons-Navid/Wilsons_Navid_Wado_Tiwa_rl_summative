@@ -217,9 +217,15 @@ def step():
     })
 
 
-def main():
+def init_app(algorithm="ppo"):
+    """Initialize environment and model. Called at startup."""
     global env
+    env = CyberThreatHuntEnv(num_nodes=14, num_threats=2, max_steps=200)
+    env.reset(seed=42)
+    load_model(algorithm)
 
+
+def main():
     parser = argparse.ArgumentParser(description="CyberShield RL Agent API")
     parser.add_argument("--algorithm", type=str, default="ppo",
                         choices=["dqn", "ppo", "a2c", "reinforce"])
@@ -227,10 +233,7 @@ def main():
     parser.add_argument("--host", type=str, default="0.0.0.0")
     args = parser.parse_args()
 
-    env = CyberThreatHuntEnv(num_nodes=14, num_threats=2, max_steps=200)
-    env.reset(seed=42)
-
-    load_model(args.algorithm)
+    init_app(args.algorithm)
 
     print(f"\nCyberShield RL Agent API running on http://{args.host}:{args.port}")
     print(f"Algorithm: {algo_name or 'random'}")
@@ -242,6 +245,11 @@ def main():
     print(f"  POST /step      — Step environment with agent's action")
 
     app.run(host=args.host, port=args.port, debug=False)
+
+
+# Auto-initialize when imported by gunicorn
+if env is None:
+    init_app(os.environ.get("RL_ALGORITHM", "ppo"))
 
 
 if __name__ == "__main__":
