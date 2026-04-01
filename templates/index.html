@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberShield Threat Hunter</title>
+<style>
+  :root {
+    --bg: #0a0c14; --panel: #111622; --border: #1a2540;
+    --cyan: #00d4ff; --green: #26ff6a; --red: #ff3d2e;
+    --yellow: #ffd91a; --orange: #ff8c00; --purple: #a44dff;
+    --blue: #2666ff; --dim: #6a7080; --bright: #e2e6ee;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--bright); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+
+  /* Header */
+  header { background:var(--panel); border-bottom:1px solid var(--border); padding:16px 32px; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:20px; color:var(--cyan); letter-spacing:2px; font-weight:700; }
+  header .badge { padding:4px 14px; border-radius:4px; font-size:13px; font-weight:600; }
+  .badge-live { background:#0a2a1a; color:var(--green); border:1px solid #1a4a2a; }
+  .badge-off { background:#2a1a1a; color:var(--red); border:1px solid #4a2a2a; }
+
+  /* Layout */
+  .grid { display:grid; grid-template-columns:1fr 340px; gap:0; min-height:calc(100vh - 60px); }
+  .main { padding:24px; overflow-y:auto; }
+  .sidebar { background:var(--panel); border-left:1px solid var(--border); padding:20px; overflow-y:auto; }
+
+  /* Cards */
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:16px; }
+  .card h3 { font-size:13px; color:var(--dim); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:12px; }
+
+  /* Network visualization */
+  #network-canvas { width:100%; aspect-ratio:16/10; background:#080a12; border-radius:8px; border:1px solid var(--border); cursor:default; }
+
+  /* Controls */
+  .controls { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .btn { padding:8px 20px; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--bright); font-size:14px; cursor:pointer; transition:all 0.15s; font-weight:500; }
+  .btn:hover { background:#1a2640; border-color:var(--cyan); }
+  .btn-primary { background:#0a2a3a; border-color:var(--cyan); color:var(--cyan); }
+  .btn-primary:hover { background:#0d3a50; }
+  .btn-danger { border-color:var(--red); color:var(--red); }
+  .btn-danger:hover { background:#2a1a1a; }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .speed-label { color:var(--dim); font-size:13px; margin-left:8px; }
+  #speed { width:100px; accent-color:var(--cyan); }
+
+  /* Metrics */
+  .metrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .metric { background:#0d1020; border:1px solid var(--border); border-radius:6px; padding:12px; }
+  .metric .label { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; }
+  .metric .value { font-size:24px; font-weight:700; margin-top:4px; }
+
+  /* Damage bar */
+  .bar-bg { height:8px; background:#1a1e2a; border-radius:4px; margin-top:6px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:4px; transition:width 0.3s, background 0.3s; }
+
+  /* Legend */
+  .legend-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; }
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:13px; padding:3px 0; }
+  .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .legend-icon { width:18px; text-align:center; font-size:14px; flex-shrink:0; }
+
+  /* Action log */
+  .log { max-height:220px; overflow-y:auto; font-family:'Cascadia Code','Fira Code',monospace; font-size:12px; }
+  .log-entry { padding:4px 0; border-bottom:1px solid #151a28; display:flex; gap:8px; }
+  .log-step { color:var(--dim); min-width:40px; }
+  .log-action { font-weight:600; }
+  .log-reward { min-width:50px; text-align:right; }
+  .log-reward.pos { color:var(--green); }
+  .log-reward.neg { color:var(--red); }
+
+  /* Agent info */
+  .agent-status { font-size:15px; }
+  .agent-status .phase { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .agent-status .detail { color:var(--dim); font-size:13px; margin-top:2px; }
+
+  /* Outcome overlay */
+  #outcome { display:none; position:fixed; inset:0; background:rgba(4,6,14,0.85); z-index:100; justify-content:center; align-items:center; }
+  #outcome.show { display:flex; }
+  .outcome-card { background:var(--panel); border:2px solid var(--cyan); border-radius:12px; padding:40px 60px; text-align:center; max-width:500px; }
+  .outcome-card h2 { font-size:32px; margin-bottom:16px; }
+  .outcome-card .stats { font-size:16px; color:var(--dim); line-height:1.8; }
+  .outcome-card .btn { margin-top:20px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CYBERSHIELD THREAT HUNTER</h1>
+  <div>
+    <span id="algo-badge" class="badge badge-off">--</span>
+    <span id="status-badge" class="badge badge-off">OFFLINE</span>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="main">
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn btn-primary" id="btn-reset" onclick="doReset()">Reset</button>
+      <button class="btn" id="btn-step" onclick="doStep()" disabled>Step</button>
+      <button class="btn btn-primary" id="btn-run" onclick="toggleRun()" disabled>Auto-Run</button>
+      <button class="btn btn-danger" id="btn-stop" onclick="stopRun()" style="display:none">Stop</button>
+      <label class="speed-label">Speed: <input type="range" id="speed" min="50" max="2000" value="500" step="50"></label>
+      <span class="speed-label" id="speed-val">500ms</span>
+    </div>
+
+    <!-- Network Graph -->
+    <canvas id="network-canvas"></canvas>
+
+    <!-- Metrics -->
+    <div class="metrics" style="margin-top:16px">
+      <div class="metric">
+        <div class="label">Total Reward</div>
+        <div class="value" id="m-reward" style="color:var(--green)">+0.0</div>
+      </div>
+      <div class="metric">
+        <div class="label">Last Reward</div>
+        <div class="value" id="m-last-reward" style="color:var(--dim);font-size:20px">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">Threats Neutralized</div>
+        <div class="value" id="m-threats">0 / 0</div>
+      </div>
+      <div class="metric">
+        <div class="label">Network Damage</div>
+        <div class="value" id="m-damage">0%</div>
+        <div class="bar-bg"><div class="bar-fill" id="damage-bar" style="width:0;background:var(--green)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <!-- Agent Status -->
+    <div class="card">
+      <h3>Agent Status</h3>
+      <div class="agent-status">
+        <div class="phase" id="a-phase">IDLE</div>
+        <div id="a-room" style="color:var(--cyan)">---</div>
+        <div id="a-action" style="margin-top:8px;font-size:18px;font-weight:700">--</div>
+        <div class="detail" id="a-step">Step 0 / 0</div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card">
+      <h3>Room States</h3>
+      <div class="legend-grid" style="margin-bottom:14px">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Clean</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--yellow)"></span>Suspicious</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span>Infected</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>Quarantined</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--orange)"></span>Honeypot</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#777"></span>Neutralized</div>
+      </div>
+      <h3>Agent Actions</h3>
+      <div class="legend-grid">
+        <div class="legend-item"><span class="legend-icon" style="color:var(--cyan)">&rarr;</span>Move</div>
+        <div class="legend-item"><span class="legend-icon" style="color:var(--green)">&target;</span>Quick Scan</div>
+        <div class="legend-item"><span class="legend-icon" style="color:var(--purple)">&#9762;</span>Deep Analyze</div>
+        <div class="legend-item"><span class="legend-icon" style="color:var(--orange)">&#11041;</span>Set Honeypot</div>
+        <div class="legend-item"><span class="legend-icon" style="color:var(--blue)">&#9635;</span>Quarantine</div>
+        <div class="legend-item"><span class="legend-icon" style="color:var(--yellow)">&#8803;</span>Check Logs</div>
+      </div>
+    </div>
+
+    <!-- Action Log -->
+    <div class="card">
+      <h3>Action Log</h3>
+      <div class="log" id="action-log">
+        <div style="color:var(--dim);padding:8px 0">Press Reset to begin...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Outcome overlay -->
+<div id="outcome-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:200;text-align:center;padding:12px 20px;font-size:16px;font-weight:700;letter-spacing:1px;background:rgba(10,12,20,0.92);border-bottom:2px solid var(--red);"></div>
+
+<div id="outcome">
+  <div class="outcome-card">
+    <h2 id="outcome-title">MISSION COMPLETE</h2>
+    <div class="stats" id="outcome-stats"></div>
+    <button class="btn btn-primary" onclick="hideOutcome(); doReset()">New Episode</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let state = null;
+let adjacency = null;
+let numNodes = 14;
+let running = false;
+let runTimer = null;
+let totalReward = 0;
+let stepCount = 0;
+let nodeRewardFlash = {};  // {nodeIndex: {reward, time, opacity}}
+let episodeCount = 0;
+const NODE_NAMES = [
+  "Firewall","Server Room","Database A","Workstation 1","Router A",
+  "Router B","Server B","Workstation 2","Database B","Workstation 3",
+  "Server C","Workstation 4","Workstation 5","Workstation 6"
+];
+const NODE_TYPE_NAMES = ["Workstation","Server","Database","Firewall","Router"];
+const ACTION_NAMES = ["MOVE","QUICK SCAN","DEEP ANALYZE","SET HONEYPOT","QUARANTINE","CHECK LOGS"];
+const ACTION_COLORS = ["#00d4ff","#26ff6a","#a44dff","#ff8c00","#2666ff","#ffd91a"];
+
+// ═══════════════════════════════════════
+//  API CALLS
+// ═══════════════════════════════════════
+const API = '';
+
+async function checkHealth() {
+  try {
+    const r = await fetch(API+'/health');
+    const d = await r.json();
+    document.getElementById('status-badge').className = 'badge badge-live';
+    document.getElementById('status-badge').textContent = 'ONLINE';
+    document.getElementById('algo-badge').className = 'badge badge-live';
+    document.getElementById('algo-badge').textContent = (d.algorithm||'random').toUpperCase();
+  } catch(e) {
+    document.getElementById('status-badge').className = 'badge badge-off';
+    document.getElementById('status-badge').textContent = 'OFFLINE';
+  }
+}
+
+async function doReset() {
+  stopRun();
+  try {
+    const r = await fetch(API+'/reset', {method:'POST', headers:{'Content-Type':'application/json'}});
+    const d = await r.json();
+    state = d.state;
+    adjacency = parseAdjacency(state.adjacency_flat, state.num_nodes);
+    numNodes = state.num_nodes;
+    totalReward = 0;
+    stepCount = 0;
+    document.getElementById('btn-step').disabled = false;
+    document.getElementById('btn-run').disabled = false;
+    document.getElementById('action-log').innerHTML = '<div style="color:var(--dim);padding:4px 0">Episode started. Agent at '+getNodeName(state.agent_pos)+'.</div>';
+    hideOutcome();
+    hideOutcomeBanner();
+    nodeRewardFlash = {};
+    updateUI();
+    drawNetwork();
+  } catch(e) { console.error('Reset failed:', e); }
+}
+
+async function doStep() {
+  if (!state) return;
+  try {
+    const r = await fetch(API+'/step', {method:'POST', headers:{'Content-Type':'application/json'}});
+    const d = await r.json();
+    state = d.state;
+    totalReward += d.reward;
+    stepCount++;
+    addLogEntry(d);
+
+    // Flash reward label on the node where action happened
+    const nodeIdx = state.agent_pos;
+    nodeRewardFlash[nodeIdx] = { reward: d.reward, time: Date.now(), opacity: 1.0 };
+
+    updateUI();
+    drawNetwork();
+    if (d.done) {
+      // Brief flash banner instead of blocking overlay
+      showOutcomeBanner(d);
+      episodeCount++;
+      // Auto-reset after 2 seconds and keep going
+      if (running) {
+        setTimeout(async () => {
+          hideOutcomeBanner();
+          totalReward = 0;
+          stepCount = 0;
+          nodeRewardFlash = {};
+          try {
+            const rr = await fetch(API+'/reset', {method:'POST', headers:{'Content-Type':'application/json'}});
+            const dd = await rr.json();
+            state = dd.state;
+            adjacency = parseAdjacency(state.adjacency_flat, state.num_nodes);
+            numNodes = state.num_nodes;
+            document.getElementById('action-log').innerHTML = '<div style="color:var(--dim);padding:4px 0">Episode ' + (episodeCount+1) + ' started.</div>';
+            updateUI();
+            drawNetwork();
+            if (running) autoStep();
+          } catch(e) { console.error('Reset failed:', e); }
+        }, 2000);
+      } else {
+        showOutcome(d);
+        document.getElementById('btn-step').disabled = true;
+      }
+    }
+  } catch(e) { console.error('Step failed:', e); }
+}
+
+function toggleRun() {
+  if (running) { stopRun(); return; }
+  running = true;
+  document.getElementById('btn-run').style.display = 'none';
+  document.getElementById('btn-stop').style.display = '';
+  document.getElementById('btn-step').disabled = true;
+  autoStep();
+}
+
+function autoStep() {
+  if (!running) return;
+  doStep().then(() => {
+    if (running) {
+      const delay = parseInt(document.getElementById('speed').value);
+      runTimer = setTimeout(autoStep, delay);
+    }
+  });
+}
+
+function stopRun() {
+  running = false;
+  if (runTimer) { clearTimeout(runTimer); runTimer = null; }
+  document.getElementById('btn-run').style.display = '';
+  document.getElementById('btn-stop').style.display = 'none';
+  if (state && state.current_step < state.max_steps) document.getElementById('btn-step').disabled = false;
+}
+
+// ═══════════════════════════════════════
+//  UI UPDATES
+// ═══════════════════════════════════════
+function updateUI() {
+  if (!state) return;
+  const s = state;
+
+  // Reward
+  const sign = totalReward >= 0 ? '+' : '';
+  const mReward = document.getElementById('m-reward');
+  mReward.textContent = sign + totalReward.toFixed(1);
+  mReward.style.color = totalReward >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Last reward
+  const lr = s.last_reward || 0;
+  const mlr = document.getElementById('m-last-reward');
+  mlr.textContent = (lr >= 0 ? '+' : '') + lr.toFixed(1);
+  mlr.style.color = lr >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Threats
+  const mt = document.getElementById('m-threats');
+  mt.textContent = s.threats_neutralized + ' / ' + s.total_threats;
+  mt.style.color = s.threats_neutralized >= s.total_threats ? 'var(--green)' : 'var(--red)';
+
+  // Damage
+  const dmgPct = s.damage_threshold > 0 ? (s.total_damage / s.damage_threshold * 100) : 0;
+  const md = document.getElementById('m-damage');
+  md.textContent = dmgPct.toFixed(0) + '%';
+  const dmgColor = dmgPct < 30 ? 'var(--green)' : dmgPct < 60 ? 'var(--yellow)' : 'var(--red)';
+  md.style.color = dmgColor;
+  const bar = document.getElementById('damage-bar');
+  bar.style.width = Math.min(dmgPct, 100) + '%';
+  bar.style.background = dmgColor;
+
+  // Agent status
+  document.getElementById('a-phase').textContent = running ? 'RUNNING' : 'IDLE';
+  document.getElementById('a-room').textContent = getNodeName(s.agent_pos);
+  document.getElementById('a-step').textContent = 'Step ' + s.current_step + ' / ' + s.max_steps;
+
+  const aAction = document.getElementById('a-action');
+  if (s.last_action !== null && s.last_action >= 0) {
+    aAction.textContent = ACTION_NAMES[s.last_action];
+    aAction.style.color = ACTION_COLORS[s.last_action];
+  } else {
+    aAction.textContent = '--';
+    aAction.style.color = 'var(--dim)';
+  }
+}
+
+function addLogEntry(d) {
+  const log = document.getElementById('action-log');
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  const rSign = d.reward >= 0 ? '+' : '';
+  const rClass = d.reward >= 0 ? 'pos' : 'neg';
+  div.innerHTML =
+    '<span class="log-step">#' + state.current_step + '</span>' +
+    '<span class="log-action" style="color:' + ACTION_COLORS[d.action] + '">' + d.action_name + '</span>' +
+    '<span style="color:var(--dim);flex:1">@ ' + getNodeName(state.agent_pos) + '</span>' +
+    '<span class="log-reward ' + rClass + '">' + rSign + d.reward.toFixed(1) + '</span>';
+  log.prepend(div);
+  // Keep max 50 entries
+  while (log.children.length > 50) log.removeChild(log.lastChild);
+}
+
+function showOutcome(d) {
+  const s = state;
+  const success = s.threats_neutralized >= s.total_threats;
+  const damageFail = s.total_damage >= s.damage_threshold;
+  const title = document.getElementById('outcome-title');
+  if (success) { title.textContent = '\u2714 MISSION COMPLETE'; title.style.color = 'var(--green)'; }
+  else if (damageFail) { title.textContent = '\u2716 MISSION FAILED'; title.style.color = 'var(--red)'; }
+  else { title.textContent = '\u231B TIME EXPIRED'; title.style.color = 'var(--yellow)'; }
+
+  const dmgPct = s.damage_threshold > 0 ? (s.total_damage / s.damage_threshold * 100) : 0;
+  const sign = totalReward >= 0 ? '+' : '';
+  document.getElementById('outcome-stats').innerHTML =
+    'Threats: ' + s.threats_neutralized + '/' + s.total_threats + '<br>' +
+    'Damage: ' + dmgPct.toFixed(0) + '%<br>' +
+    'Steps: ' + s.current_step + '/' + s.max_steps + '<br>' +
+    'Total Reward: <strong>' + sign + totalReward.toFixed(1) + '</strong>';
+  document.getElementById('outcome').classList.add('show');
+}
+
+function hideOutcome() { document.getElementById('outcome').classList.remove('show'); }
+
+function showOutcomeBanner(d) {
+  const s = state;
+  const success = s.threats_neutralized >= s.total_threats;
+  const damageFail = s.total_damage >= s.damage_threshold;
+  let text, color;
+  if (success) { text = '\u2714 MISSION COMPLETE'; color = 'var(--green)'; }
+  else if (damageFail) { text = '\u2716 BREACH DETECTED \u2014 Resetting...'; color = 'var(--red)'; }
+  else { text = '\u231B TIME EXPIRED \u2014 Resetting...'; color = 'var(--yellow)'; }
+
+  const banner = document.getElementById('outcome-banner');
+  banner.textContent = text + '  |  Threats: ' + s.threats_neutralized + '/' + s.total_threats +
+    '  |  Reward: ' + (totalReward >= 0 ? '+' : '') + totalReward.toFixed(1);
+  banner.style.color = color;
+  banner.style.borderColor = color;
+  banner.style.display = 'block';
+}
+
+function hideOutcomeBanner() {
+  document.getElementById('outcome-banner').style.display = 'none';
+}
+
+// ═══════════════════════════════════════
+//  NETWORK GRAPH (Canvas 2D)
+// ═══════════════════════════════════════
+function parseAdjacency(flat, n) {
+  const adj = [];
+  for (let i = 0; i < n; i++) {
+    adj[i] = [];
+    for (let j = 0; j < n; j++) adj[i][j] = flat[i * n + j];
+  }
+  return adj;
+}
+
+function getNodeColor(i) {
+  if (!state) return '#26ff6a';
+  const s = state;
+  const neutralized = new Set(s.neutralized_threats || []);
+  if (neutralized.has(i)) return '#777777';
+  if (s.node_quarantined[i] > 0.5) return '#2666ff';
+  if (s.node_threat_indicator[i] > 0.7) return '#ff3d2e';
+  if (s.node_threat_indicator[i] > 0.3) return '#ffd91a';
+  if (s.node_honeypot[i] > 0.5) return '#ff8c00';
+  return '#26ff6a';
+}
+
+function getNodeName(i) {
+  if (!state) return 'Node ' + i;
+  const types = state.node_types;
+  const typeNames = NODE_TYPE_NAMES;
+  return (types && i < types.length) ? typeNames[types[i]] + ' ' + i : 'Node ' + i;
+}
+
+function getNodeStatusText(i) {
+  if (!state) return 'Clean';
+  const s = state;
+  const neutralized = new Set(s.neutralized_threats || []);
+  if (neutralized.has(i)) return 'Neutralized';
+  if (s.node_quarantined[i] > 0.5) return 'Quarantined';
+  if (s.node_threat_indicator[i] > 0.7) return 'Infected';
+  if (s.node_threat_indicator[i] > 0.3) return 'Suspicious';
+  if (s.node_honeypot[i] > 0.5) return 'Honeypot';
+  return 'Clean';
+}
+
+function drawNetwork() {
+  const canvas = document.getElementById('network-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (!state || !adjacency) return;
+  const n = numNodes;
+
+  // Layout: force-directed-ish positions (use fixed grid layout for consistency)
+  const positions = computePositions(n, W, H);
+
+  // Draw edges
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#1a2540';
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      if (adjacency[i][j]) {
+        ctx.beginPath();
+        ctx.moveTo(positions[i].x, positions[i].y);
+        ctx.lineTo(positions[j].x, positions[j].y);
+        ctx.strokeStyle = '#1a2540';
+        ctx.stroke();
+      }
+
+  // Draw nodes
+  for (let i = 0; i < n; i++) {
+    const p = positions[i];
+    const color = getNodeColor(i);
+    const isAgent = state.agent_pos === i;
+    const radius = isAgent ? 26 : 20;
+
+    // Glow
+    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 2);
+    grd.addColorStop(0, color + '30');
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.fillRect(p.x - radius * 2, p.y - radius * 2, radius * 4, radius * 4);
+
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color + '25';
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = isAgent ? 3 : 2;
+    ctx.stroke();
+
+    // Agent indicator
+    if (isAgent) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius - 6, 0, Math.PI * 2);
+      ctx.fillStyle = color + '60';
+      ctx.fill();
+
+      // Pulsing ring
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius + 4 + pulse * 4, 0, Math.PI * 2);
+      ctx.strokeStyle = color + (Math.round(pulse * 80).toString(16).padStart(2, '0'));
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Node type icon
+    const typeIcons = ['\u{1F4BB}', '\u{1F5A5}', '\u{1F4BE}', '\u{1F6E1}', '\u{1F310}'];
+    const nodeType = state.node_types[i];
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(typeIcons[nodeType] || '?', p.x, p.y);
+
+    // Node label (below)
+    ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = color;
+    ctx.fillText(getNodeName(i), p.x, p.y + radius + 6);
+
+    // Status text (below name)
+    const statusText = getNodeStatusText(i);
+    if (statusText !== 'Clean') {
+      ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+      ctx.fillStyle = color + 'cc';
+      ctx.fillText(statusText.toUpperCase(), p.x, p.y + radius + 20);
+    }
+
+    // Agent label
+    if (isAgent) {
+      ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+      ctx.fillStyle = '#00d4ff';
+      ctx.fillText('\u25BC AGENT', p.x, p.y - radius - 14);
+    }
+  }
+
+  // Draw floating reward labels on nodes
+  const now = Date.now();
+  for (const [idx, flash] of Object.entries(nodeRewardFlash)) {
+    const age = (now - flash.time) / 1000;  // seconds
+    if (age > 2.0) { delete nodeRewardFlash[idx]; continue; }
+    const i = parseInt(idx);
+    if (!positions[i]) continue;
+    const p = positions[i];
+    const opacity = Math.max(0, 1.0 - age / 2.0);
+    const yOff = -30 - age * 20;  // float upward
+    const sign = flash.reward >= 0 ? '+' : '';
+    const color = flash.reward >= 0 ? '26, 255, 106' : '255, 61, 46';
+
+    // Background pill
+    const text = sign + flash.reward.toFixed(1);
+    ctx.font = '700 14px "Segoe UI", system-ui, sans-serif';
+    const tw = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(10, 12, 20, ' + (opacity * 0.8) + ')';
+    const rx = p.x - tw/2 - 6, ry = p.y + yOff - 10, rw = tw + 12, rh = 22, rr = 4;
+    ctx.beginPath();
+    ctx.moveTo(rx + rr, ry);
+    ctx.lineTo(rx + rw - rr, ry);
+    ctx.arcTo(rx + rw, ry, rx + rw, ry + rr, rr);
+    ctx.lineTo(rx + rw, ry + rh - rr);
+    ctx.arcTo(rx + rw, ry + rh, rx + rw - rr, ry + rh, rr);
+    ctx.lineTo(rx + rr, ry + rh);
+    ctx.arcTo(rx, ry + rh, rx, ry + rh - rr, rr);
+    ctx.lineTo(rx, ry + rr);
+    ctx.arcTo(rx, ry, rx + rr, ry, rr);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(' + color + ', ' + opacity + ')';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Text
+    ctx.fillStyle = 'rgba(' + color + ', ' + opacity + ')';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, p.x, p.y + yOff);
+  }
+
+  // Animate if running or reward flashes active
+  if (running || Object.keys(nodeRewardFlash).length > 0) requestAnimationFrame(drawNetwork);
+}
+
+function computePositions(n, W, H) {
+  // Use a deterministic layout: place nodes in rows
+  const margin = 70;
+  const usableW = W - margin * 2;
+  const usableH = H - margin * 2;
+
+  // 3 rows: top row (firewall + routers), middle row (servers + databases), bottom row (workstations)
+  const rows = [[], [], []];
+  if (!state) {
+    // fallback: even grid
+    const cols = Math.ceil(Math.sqrt(n));
+    const positions = [];
+    for (let i = 0; i < n; i++) {
+      positions.push({
+        x: margin + (i % cols) * (usableW / (cols - 1 || 1)),
+        y: margin + Math.floor(i / cols) * (usableH / (Math.ceil(n / cols) - 1 || 1))
+      });
+    }
+    return positions;
+  }
+
+  for (let i = 0; i < n; i++) {
+    const t = state.node_types[i];
+    if (t === 3 || t === 4) rows[0].push(i);      // firewall, router
+    else if (t === 1 || t === 2) rows[1].push(i);  // server, database
+    else rows[2].push(i);                           // workstation
+  }
+
+  const positions = new Array(n);
+  for (let r = 0; r < 3; r++) {
+    const row = rows[r];
+    const y = margin + r * (usableH / 2);
+    for (let c = 0; c < row.length; c++) {
+      const x = margin + (row.length > 1 ? c * (usableW / (row.length - 1)) : usableW / 2);
+      positions[row[c]] = { x, y };
+    }
+  }
+  return positions;
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+document.getElementById('speed').addEventListener('input', (e) => {
+  document.getElementById('speed-val').textContent = e.target.value + 'ms';
+});
+
+window.addEventListener('resize', () => { if (state) drawNetwork(); });
+
+// Auto-start: check health, reset, and begin auto-run
+async function boot() {
+  await checkHealth();
+  try {
+    await doReset();
+    toggleRun();
+  } catch(e) { console.log('Auto-start failed, server may not be ready:', e); }
+}
+boot();
+setInterval(checkHealth, 5000);
+</script>
+</body>
+</html>
