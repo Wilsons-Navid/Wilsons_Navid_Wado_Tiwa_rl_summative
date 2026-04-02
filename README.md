@@ -9,8 +9,17 @@
 
 ---
 
+## Overview
+
+A reinforcement learning agent for autonomous cyber threat hunting across a simulated enterprise network. The agent navigates a 14-node network topology to detect and neutralize hidden threats (malware, backdoors, cryptominers, data exfiltration) before cumulative damage exceeds a critical threshold.
+
+Four RL algorithms — PPO, DQN, A2C, and REINFORCE — were trained across 48 hyperparameter configurations. The best-performing agent (PPO) is deployed as a Flask REST API with a live web dashboard, and visualized in Unity 3D.
+
+---
+
 ## Table of Contents
 
+- [Overview](#overview)
 - [Unity 3D Visualization](#unity-3d-visualization)
 - [Problem Statement](#problem-statement)
 - [Environment](#environment)
@@ -19,10 +28,10 @@
   - [Observation Space](#observation-space)
   - [Reward Structure](#reward-structure)
   - [Terminal Conditions](#terminal-conditions)
-- [Algorithms Implemented](#algorithms-implemented)
-- [Training Results](#training-results)
-  - [Reward Curves](#training-reward-curves)
+- [Algorithms and Training Results](#algorithms-and-training-results)
+  - [Training Reward Curves](#training-reward-curves)
   - [Algorithm Comparison](#algorithm-comparison)
+  - [Hyperparameter Comparison](#hyperparameter-comparison)
   - [Loss and Entropy Curves](#loss-and-entropy-curves)
   - [Convergence Plots](#convergence-plots)
   - [Generalization Test](#generalization-test)
@@ -31,10 +40,11 @@
   - [API Endpoints](#api-endpoints)
   - [Example API Response](#example-api-response)
   - [Web Dashboard](#web-dashboard)
-- [Setup](#setup)
-- [Training Commands](#training-commands)
-- [Running the Agent](#running-the-agent)
-- [Unity 3D Visualization Details](#unity-3d-visualization-details)
+- [Getting Started](#getting-started)
+  - [Setup](#setup)
+  - [Training](#training)
+  - [Running the Agent](#running-the-agent)
+  - [Unity 3D Setup](#unity-3d-setup)
 - [Project Structure](#project-structure)
 
 ---
@@ -48,7 +58,7 @@
 | ![Follow - Door Navigation](results/unity_follow_door.png) | ![Cinematic - Threat Detection](results/unity_cinematic_threats.png) | ![Observer - Positive Reward](results/unity_observer_reward.png) |
 | *Follow Camera — Agent Navigating Doors* | *Cinematic — Infected Rooms (Red)* | *Observer — Agent Earning +2.0 Reward* |
 
-A reinforcement learning agent for autonomous cyber threat hunting across a simulated enterprise network. The agent navigates a 14-node network topology to detect and neutralize hidden threats (malware, backdoors, cryptominers, data exfiltration) before cumulative damage exceeds a critical threshold.
+The environment is rendered in Unity 3D as a procedural 14-room smart house. Each room represents a network node, color-coded by threat state: green (clean), yellow (suspicious), red (infected), blue (quarantined), orange (honeypot), grey (neutralized). The agent navigates corridors between rooms using BFS pathfinding. Three camera modes are available: Follow (F), Cinematic (C), and Observer (O).
 
 ---
 
@@ -110,7 +120,7 @@ All values normalized to [0, 1].
 
 ---
 
-## Algorithms Implemented
+## Algorithms and Training Results
 
 Four RL algorithms trained with **12 hyperparameter configurations each** (48 total experiments):
 
@@ -122,10 +132,6 @@ Four RL algorithms trained with **12 hyperparameter configurations each** (48 to
 | **REINFORCE** | Custom PyTorch | low_gamma (0.9) | -7.85 |
 
 PPO achieved the best performance with a deeper network architecture. DQN was competitive with better training efficiency.
-
----
-
-## Training Results
 
 ### Training Reward Curves
 
@@ -220,8 +226,8 @@ python api.py --port 8080          # Custom port
   "terminated": false,
   "truncated": false,
   "done": false,
-  "observation": [0.45, 0.32, ...],
-  "state": { "nodes": [...], "agent_pos": 3 }
+  "observation": [0.45, 0.32, "..."],
+  "state": { "nodes": ["..."], "agent_pos": 3 }
 }
 ```
 
@@ -237,24 +243,17 @@ The root route (`/`) serves a single-page dashboard with:
 
 ---
 
-## Setup
+## Getting Started
+
+### Setup
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Requirements
+**Requirements:** Python 3.9+, PyTorch >= 2.0.0, Stable Baselines 3 >= 2.3.0, Gymnasium >= 0.29.0, Flask, NumPy, Matplotlib, Pandas, TensorBoard
 
-- Python 3.9+
-- PyTorch >= 2.0.0
-- Stable Baselines 3 >= 2.3.0
-- Gymnasium >= 0.29.0
-- Flask (for API/web dashboard)
-- NumPy, Matplotlib, Pandas, TensorBoard
-
----
-
-## Training Commands
+### Training
 
 ```bash
 # Train DQN (12 hyperparameter experiments)
@@ -272,9 +271,7 @@ python training/dqn_training.py --experiment dqn_baseline
 
 Training results and plots are saved to `results/`.
 
----
-
-## Running the Agent
+### Running the Agent
 
 ```bash
 # Run best model with text rendering (default: PPO)
@@ -290,20 +287,12 @@ python main.py --render unity
 python main.py --random --render human
 ```
 
----
-
-## Unity 3D Visualization Details
+### Unity 3D Setup
 
 1. Open the `unity_viz2/` project in Unity 2022 LTS
 2. Open the main scene and press Play
 3. Run `python main.py --render unity` from the project root
 4. Unity connects via TCP socket (port 9876) and renders in real-time
-
-Features:
-- Procedural 14-room smart house with corridors and BFS pathfinding
-- Color-coded rooms: green (clean), yellow (suspicious), red (infected), blue (quarantined), orange (honeypot), grey (neutralized)
-- CyberHUD overlay with action legend, damage bar, and status info
-- Three camera modes: Follow (F), Cinematic (C), Observer (O)
 
 ---
 
