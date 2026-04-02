@@ -4,6 +4,8 @@
 **Course:** Machine Learning Techniques II  
 **Assignment:** Summative Assignment - Mission Based Reinforcement Learning  
 
+> **Web Dashboard (Live Agent Demo):** [https://wilsons-navid-wado-tiwa-rl-summative.onrender.com](https://wilsons-navid-wado-tiwa-rl-summative.onrender.com)
+
 | | | |
 |:---:|:---:|:---:|
 | ![Cinematic Overview](results/unity_cinematic_overview.png) | ![Observer Top-Down](results/unity_observer_topdown.png) | ![Follow - Agent Walking](results/unity_follow_agent.png) |
@@ -138,8 +140,6 @@ python api.py                      # Start on port 5000 (default: PPO model)
 python api.py --algorithm dqn      # Use DQN model
 python api.py --port 8080          # Custom port
 ```
-
-**Live Demo:** [https://wilsons-navid-wado-tiwa-rl-summative.onrender.com](https://wilsons-navid-wado-tiwa-rl-summative.onrender.com)
 
 Or run locally — open `http://localhost:5000` for the web dashboard with:
 - Canvas 2D network graph with color-coded node states
