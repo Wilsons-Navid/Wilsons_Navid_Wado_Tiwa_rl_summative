@@ -4,7 +4,8 @@
 **Course:** Machine Learning Techniques II  
 **Assignment:** Summative Assignment - Mission Based Reinforcement Learning  
 
-> **Web Dashboard (Live Agent Demo):** [https://wilsons-navid-wado-tiwa-rl-summative.onrender.com](https://wilsons-navid-wado-tiwa-rl-summative.onrender.com)
+> **Flask API + Web Dashboard (Live Demo):** [https://wilsons-navid-wado-tiwa-rl-summative.onrender.com](https://wilsons-navid-wado-tiwa-rl-summative.onrender.com)  
+> Agent actions serialized to JSON via REST endpoints — integrated as an API to a frontend dashboard.
 
 | | | |
 |:---:|:---:|:---:|
