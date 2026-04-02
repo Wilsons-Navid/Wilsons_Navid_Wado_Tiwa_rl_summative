@@ -139,7 +139,9 @@ python api.py --algorithm dqn      # Use DQN model
 python api.py --port 8080          # Custom port
 ```
 
-Open `http://localhost:5000` for the live web dashboard with:
+**Live Demo:** [https://wilsons-navid-wado-tiwa-rl-summative.onrender.com](https://wilsons-navid-wado-tiwa-rl-summative.onrender.com)
+
+Or run locally — open `http://localhost:5000` for the web dashboard with:
 - Canvas 2D network graph with color-coded node states
 - Real-time controls (Reset, Step, Auto-Run, Speed slider)
 - Live metrics (reward, threats neutralized, damage bar)
