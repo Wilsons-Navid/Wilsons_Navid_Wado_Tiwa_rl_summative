@@ -1,5 +1,7 @@
 # CyberShield Threat Hunter — Mission-Based Reinforcement Learning
 
+![CyberShield Threat Hunter](results/unity_cinematic_overview.png)
+
 **Student Name:** Wado Tiwa Wilsons Navid  
 **Course:** Machine Learning Techniques II  
 **Assignment:** Summative Assignment - Mission Based Reinforcement Learning  
